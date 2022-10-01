@@ -1,0 +1,610 @@
+---
+title: "Provisionnement rentes viageres temporaires"
+output: pdf_document
+date: "`r Sys.Date()`"
+---
+  [PROJET - ACTUARIAT - VIE][Groupe G2-Sujet 2]
+MEHDI HANTOUS
+AHMED BEN AMOR
+BADIS MAHJOUBI
+SKANDER BACHTA
+BALKIS AYARI
+
+
+# Le lien R shiny :
+https://ahmedbenamor.shinyapps.io/rshinyapp/
+
+
+## Resumé 
+L’objectif de ce travail est de calculer le rente viagere d’une cohorte d’assurés Italiens composé de  60% de femmes et 40% d’hommes  nés en 1955.Pour cela nous allons faire une étude et analyse du taux de mortalité chez les britanniques dans le premier chapitre ensuite la mise en place du  modèle  Lee- Carter .
+Le modele Lee-Carter est un  modèle bidimensionnel prend en compte à la fois l’année et l’âge pour déterminer les taux de mortalité,afin de predire les taux de mortalité pour les années futures. 
+Enfin le dernier chapitre sera consacré à la construction des tables de mortalité pour les deux sexes afin de calculer la valeur actuelle probable du contrat pour les cohortes nées en 1955 contractés en 2015 -2045. 
+
+
+# Chapitre I: ETUDE DE LA MORTALITE EN ITALIE 
+
+
+## 1)	Notions générales de mortalité 
+$$\mu_{x,t}=\frac{d_{x,t}}{E_{x,t}}$$
+  Avec comme paramètres: 
+  
+  $d_{x,t}$ : Nombre de décès à l'âge x et à l'année calendaire t
+
+$E_{x,t}$ : Nombre total de vies vécues entre les âges $x$ et $x+1$
+  
+  
+  chargement des librairies nécessaires :
+  
+```{r echo=FALSE, cache=FALSE, warning=FALSE, results=FALSE}
+  
+library(forecast)
+library(demography)
+
+``` 
+
+```{r}
+ltm<-read.csv("C:/Users/MSI/Desktop/ACTUARIAT VIE/mltper_1x1.txt", sep="")
+
+
+ltf<-read.csv("C:/Users/MSI/Desktop/ACTUARIAT VIE/fltper_1x1.txt", sep="")
+summary(ltm)
+summary(ltf)
+View(ltm)
+```
+```{r}
+ltm$Age<-as.numeric(as.character(ltm$Age))
+ltm$Age[111]<-110
+plot(ltm$Age,ltm$lx,type="l")
+
+```
+```{r}
+ltf$Age<-as.numeric(as.character(ltf$Age))
+ltf$Age[111]<-110
+plot(ltf$Age,ltf$lx,type="l")
+```
+
+
+```{r}
+italy <- read.demogdata(file="C:/Users/MSI/Desktop/ACTUARIAT VIE/Mx_1x1.txt", popfile="C:/Users/MSI/Desktop/ACTUARIAT VIE/Exposures_1x1.txt",
+                     type="mortality", label="ITA")
+
+
+summary(italy)
+
+```
+
+```{r}
+class(italy) # type vérifié
+```
+
+```{r}
+names(italy)
+```
+## 2) Taux de mortalité en italie 
+
+### 2.1) Etude de  mortalité  durant 1872-2018
+#### 2.1.1)Taux de mortalité de la polpulation totale en fonction de l'age
+```{r}
+# graphe taux de mortalité de la polpulation total en fonction de l'age 
+
+plot(italy, series = 'Total')
+## avec légendes des années  
+legend("bottomright",legend=unique(italy$year),
+       col=rainbow(length(italy$year)*1.25), ncol=4, pch=3, 
+       title="Year", cex=0.3)
+```
+
+Mortalité sur un ensemble prédéfini
+### *R Markdown* :
+
+- 1872-1945 :les deux Guerres mondiales et guerres civiles
+- 1945-1960 :population après-guerre
+- 1980-1990 :les premières générations  qui a vécu  durant guerre froide 
+- 2000-2018 :le développement scientifique et le progrès médical 
+
+```{r}
+years=c(1872:1945, 1945:1960, 1980:1990,2000:2018)
+age_yr = extract.years(data = italy, years = years) 
+par(mar=c(5.1, 4.1, 4.1, 11), xpd=TRUE)
+#ítotal
+plot(italy,series='total',  ages=italy$age, years=years, max.age=max(italy$age) , plot.type="functions", main="taux de mortalité totale en italie 1872-2018 ",xlab="age") 
+legend("bottomright",legend=unique(age_yr$year),
+       col=rainbow(length(age_yr$year)*1.25), ncol=5, pch=3, 
+       title="Year", cex=0.13)
+
+```
+
+la courbe a un comprtement remarquable d'une plage d'age à l'autre, mais on remarque l' abondance du vert avec un taux de mortalité enfantine et personnes âgées le plus important à cause des guerres. la couleur bleu montre une baisse de taux de mortalité est clairement constatée.
+
+#### 2.1.2) Taux de mortalité de la polpulation féminine en fonction de l'age(1872-2018)
+
+```{r}
+par(mar=c(5.1, 4.1, 4.1, 11), xpd=TRUE)
+#ítotal
+plot(italy,series='female',  ages=italy$age, years=years, max.age=max(italy$age) , plot.type="functions", main="Mortalité féminine en italie 1872-2018 ",xlab="age") 
+legend("bottomright",legend=unique(age_yr$year),
+       col=rainbow(length(age_yr$year)*1.25), ncol=5, pch=3, 
+       title="Year", cex=0.3)
+```
+
+
+
+#### 2.1.3) Taux de mortalité de la polpulation masculine en fonction de l'age(1872-2018)
+
+```{r}
+par(mar=c(5.1, 4.1, 4.1, 11), xpd=TRUE)
+#ítotal
+plot(italy,series='male',  ages=italy$age, years=years, max.age=max(italy$age) , plot.type="functions", main="Mortalité masculine en italie (1872-2018) ",xlab="age") 
+legend("bottomright",legend=unique(age_yr$year),
+       col=rainbow(length(age_yr$year)*1.25), ncol=5, pch=3, 
+       title="Year", cex=0.3)
+
+```
+
+#### 2.1.4) Etude comparative
+```{r}
+
+par(mfrow=c(1,3))
+plot(italy,series="male",datatype="rate", main="Male rates",ages=italy$age, years=years, max.age=max(italy$age))
+plot(italy,series="female",datatype="rate", main="Female rates",ages=italy$age, years=years, max.age=max(italy$age))
+plot(italy,"total",datatype="rate", main="Total rates",ages=italy$age, years=years, max.age=max(italy$age))
+```
+
+ la mortalité masculine est supérieure à celle féminine durant toutes les périodes et les âges. la courbe verte masculine est en double cloche,nous pouvons constater une mortalité importante chez les jeunes générations qui ont eu le malheur de naître pendant la seconde Guerre mondiale.
+ 
+#### 2.1.5) Zoom sur Taux de mortalité pendant la 2éme guerre mondiale 
+
+```{r}
+ 
+ita_years = c(1939:1945)
+plot(italy, series = 'total', years = ita_years ,
+     main = "Mortalité pendant la 2éme guerre mondiale   1939 to 1945"
+     )
+legend(x="bottomright", legend = ita_years,
+       col = rainbow(length(ita_years)*1.25),
+       lty = 1,
+       cex=0.7,
+       box.lwd = 0.3
+       )
+```
+
+#### 2.1.6) Taux de mortalité selon les années
+ 
+```{r}
+par(mfrow=c(1,3)) 
+plot(italy,series="male",datatype="rate",  plot.type="time", main="Male rates",xlab="Years") 
+plot(italy,series="female",datatype="rate", plot.type="time", main="Female rates",xlab="Years") 
+plot(italy,series="total",datatype="rate",  plot.type="time", main="Total rates",xlab="Years")
+
+
+```
+A l’échelle logarithmique le taux de mortalitéest globalement écroissante par rapport au temps t.
+### 2.2) Etude de  mortalité  durant la période 1955-2018 (Femme),1959-2018 (Homme)
+Pour extraire une génération:
+
+```{r}
+cohort <- function(year, rates, log=FALSE) {  
+  xg <- diag(rates[, colnames(rates) >= year])  
+  names(xg) <- paste(year, rownames(rates)[1:length(xg)], sep="-x=") 
+  if(log)    
+    xg <- log(xg)  
+  xg } 
+
+cohort_of_cohorts <- function(years, rates, log=FALSE) { 
+  xgs<-vector() 
+  for (year in years) 
+  {   xg <- diag(rates[, colnames(rates) >= year])  
+    names(xg) <- paste(year, rownames(rates)[1:length(xg)], sep="-x=") 
+    if(log)   
+      xg <- log(xg)
+    
+    xgs<-c(xgs,list(xg))   }  
+  xgs } 
+
+```
+
+```{r}
+colfunc <- colorRampPalette(c("red", "blue")) 
+cohorts<-cohort_of_cohorts(1955:2018, italy$rate$female,log=T) 
+
+plot(cohort(1955, italy$rate$female, log=T),col=colfunc(20)[1], type="l",ylim=c(-9,-4), main="Cohortes de femmes italiennes 1955-2018",xlab="age",ylab="taux de mortalité ") 
+i<-2 
+for (one_cohort in cohorts){  
+  lines (one_cohort, col=colfunc(20)[i])  
+  i<-i+1 } 
+legend(x="bottomright",legend=unique(1955:2018),col=colfunc(20), ncol=5, pch=19, title="Year", cex=0.5) 
+
+```
+
+```{r}
+colfunc <- colorRampPalette(c("red", "blue")) 
+cohorts<-cohort_of_cohorts(1959:2018, italy$rate$male,log=T) 
+
+plot(cohort(1959, italy$rate$male, log=T),col=colfunc(20)[1], type="l",ylim=c(-9,-4), main="Cohortes d'hommes italiens 1959-2018",xlab="age",ylab="taux de mortalité ") 
+i<-2 
+for (one_cohort in cohorts){  
+  lines (one_cohort, col=colfunc(20)[i])  
+  i<-i+1 } 
+legend(x="bottomright",legend=unique(1959:2018),col=colfunc(20), ncol=5, pch=19, title="Year", cex=0.5) 
+
+```
+
+#Question 3
+
+
+
+######      1.Fitting Lee Carter model
+
+
+```{r}
+italyM<-lca(italy,series="male",max.age=100)
+italyF<-lca(italy,series="female",max.age=100)
+italyT<-lca(italy,series="total",max.age=100)
+```
+
+
+#### Estimer la projection centrale
+```{r}
+#Estimer la projection centrale (moyenne) sur 20 ans des taux de mortalité à l’aide de la fonction forecast.
+fM<-forecast(italyM,h=20)
+fF<-forecast(italyF,h=20)
+fT<-forecast(italyT,h=20)
+```
+
+```{r}
+par(mfrow=c(1,3))
+plot(fM$kt.f,main="Male")
+plot(fF$kt.f,main="Female")
+plot(fT$kt.f,main="Total")
+```
+
+
+```{r}
+ratesH<-cbind(italy$rate$male[1:100,],fM$rate$male[1:100,])
+ratesF<-cbind(italy$rate$female[1:100,],fF$rate$female[1:100,])
+ratesT<-cbind(italy$rate$total [1:100,],fT$rate$total[1:100,])
+```
+
+###### Construction de table de mortalité  
+```{r}
+createActuarialTable<-function(yearOfBirth,rate){ 
+     mxcoh <- rate[1:nrow(rate),(yearOfBirth-min(italy$year)+1):ncol(rate)] 
+     cohort.mx <- diag(mxcoh) 
+     cohort.px=exp(-cohort.mx) 
+     #get projected Px 
+     fittedPx=cohort.px 
+     #add px to table 
+     px4Completion=seq(from=cohort.px[length(fittedPx)], to=0, length=20) 
+     totalPx=c(fittedPx,px4Completion[2:length(px4Completion)]) 
+     irate=2.5/100 
+     #create life table 
+     
+     cohortLt=probs2lifetable(probs=totalPx, radix=10000,type="px",name=paste("Cohort",yearOfBirth)) 
+     cohortAct=new("actuarialtable",x=cohortLt@x,interest=irate, lx=cohortLt@lx ,name=cohortLt@name) 
+     return(cohortAct)
+     }
+
+```
+
+
+
+```{r}
+tableActuarialeT<-createActuarialTable(1955,ratesT)
+tableActuarialeM<-createActuarialTable(1959,ratesH)
+tableActuarialeF<-createActuarialTable(1955,ratesF)
+```
+
+##### CALCUL Esperance
+```{r}
+ESPF=exn(tableActuarialeF,x=62)
+ESPF
+
+```
+###  probabilité de décès pour l'age 62 jusqu'a la fin du contrat apres 20 ans 
+```{r}
+Proba_decesF=qxt(tableActuarialeF, x=62, t=20) 
+Proba_decesF
+
+``` 
+#### espérance de vie pour un homme à l'age 62 :
+```{r}
+ESPM=exn(tableActuarialeM,x=62)
+ESPM
+```
+### probabilité de décès pour l'age 62 jusqu'a la fin du contrat 
+```{r}
+Prob_adecesM=qxt(tableActuarialeM, x=62, t=20) 
+Prob_adecesM
+``` 
+
+```{r}
+#1er contrat:
+
+#male
+VerifVAPM = axn(tableActuarialeM, x=62, n=20)
+VerifVAPM
+
+#female
+VerifVAPF = axn(tableActuarialeF, x=62, n=20)
+VerifVAPF 
+
+#total
+VerifVAPT = axn(tableActuarialeT, x=62, n=20)
+VerifVAPT 
+
+
+
+```
+
+
+##### comparison 
+On a trouvé la meme resultat dans la 1ére methode 
+
+```{r}
+VAPverif= matrix(c( "male :" ,"female : ", "total :" ,VerifVAPM,VerifVAPT,VerifVAPF),nrow = 3,ncol=2)
+VAPverif
+```
+
+####**************    Autre methode pour le Calcule de la valeur actuelle probable *****************
+
+
+```{r}
+library(MASS)
+library(fitdistrplus)
+library(survival)
+library(npsurv)
+library(lsei)
+library(StMoMo)
+```
+
+
+
+```{r}
+fnorm<-fitdist(cohort(1955, italy$rate$female, log=T), "norm" )
+fnorm$estimate
+```
+```{r}
+mnorm<-fitdist(cohort(1959, italy$rate$male, log=T), "norm" )
+mnorm$estimate
+```
+
+```{r}
+require(StMoMo)
+# utilisation mort male/female/totale, exposition en milieu d'année
+ita.StMoMoData<-StMoMoData(data=italy, series = "total",type="central") 
+ita.StMoMoDataF<-StMoMoData(data=italy, series = "female",type="central")
+ita.StMoMoDataM<-StMoMoData(data=italy, series = "male",type="central")
+#apporter à la première année  pour (male/female/totale)
+ita.StMoMoData.Ini<-central2initial(ita.StMoMoData) 
+ita.StMoMoData.IniF<-central2initial(ita.StMoMoDataF) 
+ita.StMoMoData.IniM<-central2initial(ita.StMoMoDataF)
+
+```
+-Un  maximum d’age égal à 100 ans vue que à partir de 95 ans les âges sont mal estimés en raison des erreurs de déclaration et de recensement.
+  -Une période de calibration choisie varie entre 1955 et 2016.
+    
+    
+```{r}
+#plage d'âges supposer un âge maximum de 100 ans 
+ages.fit = 0:100
+#période de calibration
+fyears.fit = 1955:2018
+myears.fit = 1959:2018
+```
+
+```{r}
+#Adapter les modèles
+LC <- lc(link = "logit") 
+LCfit <- fit(LC, data = central2initial(ita.StMoMoData), ages.fit = ages.fit, years.fit = fyears.fit)
+LCfitF <- fit(LC, data = central2initial(ita.StMoMoDataF), ages.fit = ages.fit, years.fit = fyears.fit)
+LCfitM <- fit(LC, data = central2initial(ita.StMoMoDataM), ages.fit = ages.fit, years.fit = myears.fit)
+```
+
+```{r}
+horizon=20
+#marche aleatoire 
+#total
+LCfor <- forecast(LCfit, h = horizon) 
+#female 
+LCforF<- forecast( LCfitF, h = horizon) 
+#male
+LCforM<- forecast( LCfitM, h = horizon)
+```
+### A quelle quantité correspond la projection centrale?
+
+### Pour projeter la mortalit ́e, il suffit de projeter la śerie temporelle  $k_t$.
+
+### ****Projection du modèle avec marche aléatoire avec tendance*********************
+```{r}
+
+#marcha aleatoire 
+plot(LCfor, only.kt = TRUE)
+plot(LCforF, only.kt = TRUE)
+plot(LCforM, only.kt = TRUE)
+```
+
+
+
+```{r}
+LCforArima <- forecast(LCfit, h = horizon, kt.method = "iarima",kt.order =c(0,1,1))
+plot(LCforArima, only.kt = TRUE)
+LCforArimaf <- forecast(LCfitF, h = horizon, kt.method = "iarima",kt.order =c(0,1,1))
+plot(LCforArimaf, only.kt = TRUE)
+LCforArimam <- forecast(LCfitM, h = horizon, kt.method = "iarima",kt.order =c(0,1,1))
+plot(LCforArimam, only.kt = TRUE)
+```
+La trajectoire moyenne du paramètre k est ici un scénario moyen dans lequel aucun choc de mortalité à la hausse(épidémie ,guerre...) ou à la baisse (avancé
+importante de la médecine,...) n’est pris en compte
+
+
+## 4)	Esperence de vie
+##### Femme
+```{r}
+#les taux de 1955 en un seul vecteur:
+chosen_cohort=1955
+library(lifecontingencies)
+historical1955F <- extractCohort(fitted(LCfitF, type = "rates"),
+                                         cohort = chosen_cohort)
+forecasted1955F<- extractCohort(LCforF$rates,
+                                         cohort = chosen_cohort)
+rates1955F <- c(historical1955F,forecasted1955F)
+qx1955F<-mx2qx(rates1955F)#(mx2qx convertion de taux de mortalite en probabilité de decces)
+```
+
+
+
+#### Homme 
+```{r}
+historical1959M <- extractCohort(fitted(LCfitM, type = "rates"),
+                                         cohort = chosen_cohort)
+forecasted1959M<- extractCohort(LCforM$rates,
+                                         cohort = chosen_cohort)
+rates1959M <- c(historical1955M,forecasted1959M)
+qx1959M<-mx2qx(rates1959M)
+```
+
+
+
+###### transformation en lifetable Pour les femmes:
+```{r}
+
+
+lifetableF<-probs2lifetable(probs=qx1955F,type = "qx",name =paste("LC","1955","lt",sep="_"))
+
+```
+
+###### transformation en lifetable Pour les hommes:
+```{r}
+lifetableM<-probs2lifetable(probs=qx1959M,type = "qx",name =paste("LC","1959","lt",sep="_"))
+```
+
+#### espérance de vie pour une femme à l'age 62 :
+```{r}
+ESPF=exn(lifetableF,x=62)
+ESPF
+```
+###  probabilité de décès pour l'age 62 jusqu'a la fin du contrat apres 20 ans 
+```{r}
+Proba_decesF=qxt(lifetableF, x=62, t=20) 
+Proba_decesF
+
+``` 
+#### espérance de vie pour un homme à l'age 62 :
+```{r}
+ESPM=exn(lifetableM,x=62)
+ESPM
+```
+### probabilité de décès pour l'age 62 jusqu'a la fin du contrat 
+```{r}
+Prob_adecesM=qxt(lifetableM, x=62, t=20) 
+Prob_adecesM
+``` 
+##### Question 6  Calcule la valeur actuelle probable du contrat en diﬀérenciant selon que l’assuré est un homme ou une femme
+-----
+```{r}
+
+# transformation de la lifetable en table actuarielle :
+#Taux d'interet = 0.05 
+acttableF<-new("actuarialtable",x=lifetableF@x,
+                    lx=lifetableF@lx,
+                    interest = 0.05)
+
+# transformation de la lifetable en table actuarielle pour les hommes  :
+acttableM<-new("actuarialtable",x=lifetableM@x,
+                    lx=lifetableM@lx,
+                    interest = 0.05)
+
+```
+
+#### VAP Femme
+```{r}
+VAPF = axn(acttableF, x=62, n=20)
+VAPF
+```
+
+#### VAP Homme
+```{r}
+VAPM = axn(acttableM, x=62, n=20)
+VAPM
+```
+
+=> Il y a une différence dans la valeur actuelle probable entre les femmes et les hommes  (VAP femme > VAP homme)
+
+#### Question 7 Consturction TABLES DE MORTALITE POUR la population  totale
+
+```{r}
+historical1955t <- extractCohort(fitted(LCfit, type = "rates"),
+                                         cohort = chosen_cohort)
+forecasted1955t<- extractCohort(LCfor$rates,
+                                         cohort = chosen_cohort)
+rates1955t <- c(historical1955t,forecasted1955t)
+qx1955t<-mx2qx(rates1955t)
+```
+
+```{r}
+lifetablet<-probs2lifetable(probs=qx1955t,type = "qx",name =paste("LC","1955","lt",sep="_"))
+```
+
+##### espérance de vie  à l'age 62 :
+```{r}
+
+ESPt=exn(lifetablet,x=62)
+ESPt
+```
+```{r}
+ESP=matrix(c( "male :" ,"female : ", "total :" ,ESPM,ESPF,ESPt),nrow = 3,ncol=2)
+ESP
+```
+
+##### probabilité de décès pour l'age 62 jusqu'a la fin du contrat :
+```{r}
+
+Prob_adecest=qxt(lifetablet, x=62, t=20) 
+Prob_adecest
+``` 
+#####  transformation de la lifetable en table actuarielle :
+```{r}
+
+acttablet<-new("actuarialtable",x=lifetablet@x,
+                    lx=lifetablet@lx,
+                    interest = 0.05)
+
+```
+
+
+
+```{r}
+VAP_t = axn(acttablet, x=62, n=20)
+VAP_t
+```
+
+# VAP
+
+```{r}
+VAP=matrix(c( "male :" ,"female : ", "total :" ,VAPM,VAPF,VAP_t),nrow = 3,ncol=2)
+VAP
+```
+  VAP_femme> VAP_Homme 
+puisque l'espérance de vie des femmes est plus importante que celle des hommes,par conséquent la longevité des femmes influent sur la valeur  probable de la rente viagére.
+##### Un assureur peut-il diﬀérencier ses tarifs selon le genre de ses assurés
+
+Le « risque de longévité » peut donc être défini comme étant le risque financier pour l'assureur .mais la nouvelle réglementation du 21 Décembre 2012, prévoit qu’en Europe, les assureurs doivent appliquer aux femmes et aux hommes des tarifs identiques pour un même produit d'assurance, sans distinction fondée sur le sexe. 
+
+##### Calcul de provisionnement mathematique en fonction du temps et d'age 
+
+
+```{r}
+PM <- function(instant_t, age_x){
+  if (age_x+instant_t < 62){
+    return(axn(acttablet, x=age_x, n=20)-axn(acttablet, x=(age_x+instant_t),n=(20-instant_t)))
+  }
+  else {
+    return(axn(acttablet, x=(age_x+instant_t), n=(20-instant_t)))
+  }
+}
+
+PM(10,53)
+
+
+```
+
